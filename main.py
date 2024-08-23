@@ -25,8 +25,8 @@ def get_posts():
     return {"status": "success", "code": 200, "error": False,  "message": "These are your posts", "data": [{"title": "Post 1", "content": "This is post 1"}, {"title": "Post 2", "content": "This is post 2"}, {"title": "Post 3", "content": "This is post 3"}]}
 
 
-@app.post("/create_post")
-def create_post(new_post: Post):
+@app.post("/posts")
+def create_post(post: Post):
     # Here we will be using Pydantic to define a schema for our payload. This will restrict the user to follow the schema and he cannot send any garbage value in the POST Body.
-    print(new_post.dict())
-    return {"status": "success", "code": 200, "error": False,  "message": "New post created successfully", "data": new_post}
+    print(post.dict())
+    return {"status": "success", "code": 200, "error": False,  "message": "New post created successfully", "data": post}
