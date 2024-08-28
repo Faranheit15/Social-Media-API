@@ -7,6 +7,9 @@ This is a simple FastAPI application that demonstrates how to create API endpoin
 - **GET `/`**: Returns a success message indicating that the API is working.
 - **GET `/posts`**: Retrieves a list of sample posts.
 - **POST `/posts`**: Allows users to create a new post by sending a JSON payload.
+- **GET `/posts/{id}`**: Retrieves a specific post by its ID.
+- **DELETE `/posts/{id}`**: Deletes a post by its ID.
+- **PUT `/posts/{id}`**: Updates a post by its ID.
 
 ## Installation
 
@@ -55,7 +58,7 @@ Run the FastAPI Server:
 Use Uvicorn to run the FastAPI server with the following command:
 
 ```bash
-uvicorn main:app --reload
+uvicorn app.main:app --reload
 ```
 
 The server will start on http://127.0.0.1:8000.

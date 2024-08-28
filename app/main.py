@@ -1,7 +1,6 @@
 from fastapi import FastAPI, Response, status, HTTPException, Depends
 from fastapi.params import Body
-from pydantic import BaseModel  # schema
-from typing import Optional
+from typing import Optional, List
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from time import sleep
@@ -9,112 +8,53 @@ from sqlalchemy.orm import Session
 from . import models, schemas
 from .database import engine, SessionLocal, get_db
 
-models.Base.metadata.create_all(bind=engine)  # this line creates the table
+models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI()  # initializing the FastAPI instance
-
-
-# while True:
-#     try:
-#         conn = psycopg2.connect(host="localhost", database="social-media",
-#                                 user="postgres", password="postgres", cursor_factory=RealDictCursor)
-#         cursor = conn.cursor()
-#         print("Database connection was successful", cursor)
-#         break
-#     except Exception as error:
-#         print("Error while connecting to database", error)
-#         sleep(2)
-
-# decorator. This contains the FastAPI instance and the path to be accessed. It can either be called an API route or Path Operation.
+app = FastAPI()
 
 
 @app.get("/")
-async def root():  # function. The async keywork is optional, it is used to indicate that the function is asynchronous, i.e., communicating with the Database, etc.
+async def root():
     return {"status": "success", "status_code": status.HTTP_200_OK, "error": False,  "message": "API is working!", "data": {}}
 
 
-@app.get("/posts")
+@app.get("/posts", response_model=List[schemas.Post])
 def get_posts(db: Session = Depends(get_db)):
-    # using SQL
-    # cursor.execute("""SELECT * FROM posts""")
-    # posts = cursor.fetchall()
-    # using SQLAlchemy
     posts = db.query(models.Post).all()
-    return {"status": "success", "status_code": status.HTTP_200_OK, "error": False,  "message": "These are your posts", "data": posts}
+    return posts
 
 
-@app.post("/posts", status_code=status.HTTP_201_CREATED)
-def create_post(post: schemas.Post, db: Session = Depends(get_db)):
-    # Here we will be using Pydantic to define a schema for our payload. This will restrict the user to follow the schema and he cannot send any garbage value in the POST Body.
-    # post_dict = post.dict()
-    # post_dict["id"] = len(my_posts) + 1
-    # my_posts.append(post_dict)
-    # using SQL
-    # cursor.execute("""INSERT INTO posts (title, content, published) VALUES (%s, %s, %s) RETURNING * """,
-    #                (post.title, post.content, post.published))
-    # new_post = cursor.fetchone()
-    # conn.commit()
-
-    # using SQLAlchemy
-    # new_post = models.Post(
-    #     title=post.title, content=post.content, published=post.published)
+@app.post("/posts", status_code=status.HTTP_201_CREATED, response_model=schemas.Post)
+def create_post(post: schemas.PostCreate, db: Session = Depends(get_db)):
     new_post = models.Post(**post.dict())
     db.add(new_post)
     db.commit()
     db.refresh(new_post)
-    return {"status": "success", "status_code": status.HTTP_201_CREATED, "error": False,  "message": "New post created successfully", "data": new_post}
+    return new_post
 
 
-@app.get("/posts/{id}")
+@app.get("/posts/{id}", response_model=schemas.Post)
 def get_post_by_id(id: int, db: Session = Depends(get_db)):
-    # using SQL
-    # cursor.execute("""SELECT * FROM posts WHERE id = %s""", (str(id)))
-    # post = cursor.fetchone()
-    # if not post:
-    #     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-    #                         detail=f"Post with ID {id} not found")
-
-    # using SQLAlchemy
     post = db.query(models.Post).filter(models.Post.id == id).first()
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail=f"Post with ID {id} not found")
-    return {"status": "success", "status_code": status.HTTP_200_OK, "error": False,  "message": "Post fetched successfully", "data": post}
+    return post
 
 
 @app.delete("/posts/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_post(id: int, db: Session = Depends(get_db)):
-    # using SQL
-    # cursor.execute(
-    #     """DELETE FROM posts WHERE id = %s RETURNING * """, (str(id)))
-    # deleted_post = cursor.fetchone()
-    # conn.commit()
-    # if deleted_post == None:
-    #     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-    #                         detail=f"Post with ID {id} not found")
-
-    # using SQLAlchemy
     post = db.query(models.Post).filter(models.Post.id == id)
     if post.first() == None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail=f"Post with ID {id} not found")
     post.delete(synchronize_session=False)
     db.commit()
-    return {"status": "success", "status_code": status.HTTP_204_NO_CONTENT, "error": False,  "message": "Post deleted successfully", "data": post}
+    return post
 
 
-@app.put("/posts/{id}")
-def update_post(id: int, updated_post: schemas.Post, db: Session = Depends(get_db)):
-    # using SQL
-    # cursor.execute("""UPDATE posts SET title = %s, content = %s, published = %s WHERE id = %s RETURNING * """,
-    #                (post.title, post.content, post.published, str(id)))
-    # updated_post = cursor.fetchone()
-    # conn.commit()
-    # if updated_post == None:
-    #     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-    #                         detail=f"Post with ID {id} does not exist")
-
-    # using SQLAlchemy
+@app.put("/posts/{id}", response_model=schemas.Post)
+def update_post(id: int, updated_post: schemas.PostCreate, db: Session = Depends(get_db)):
     post_query = db.query(models.Post).filter(models.Post.id == id)
     post = post_query.first()
     if post == None:
@@ -122,4 +62,13 @@ def update_post(id: int, updated_post: schemas.Post, db: Session = Depends(get_d
                             detail=f"Post with ID {id} does not exist")
     post_query.update(updated_post.dict(), synchronize_session=False)
     db.commit()
-    return {"status": "success", "status_code": status.HTTP_200_OK, "error": False,  "message": "Post updated successfully", "data": post_query.first()}
+    return post_query.first()
+
+
+@app.post("/user", status_code=status.HTTP_201_CREATED, response_model=schemas.UserOut)
+def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
+    new_user = models.User(**user.dict())
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return new_user
